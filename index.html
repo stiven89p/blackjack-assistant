@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blackjack Assistant</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0c3d12;
+      background-image: radial-gradient(ellipse at center, #0f5219 0%, #0a2e0d 100%);
+      color: #e8e0d0;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      min-height: 100vh;
+      padding: 10px;
+    }
+    .container { max-width: 680px; margin: 0 auto; }
+
+    /* ─── Counts ─── */
+    .top-counts {
+      display: grid;
+      grid-template-columns: 1.6fr 1fr 1fr 1fr;
+      gap: 7px;
+      margin-bottom: 8px;
+    }
+    @media (max-width: 460px) { .top-counts { grid-template-columns: 1fr 1fr; } }
+    .count-block {
+      background: rgba(0,0,0,0.45);
+      border: 1px solid #2d6e2d;
+      border-radius: 10px;
+      padding: 8px 10px;
+      text-align: center;
+    }
+    .count-lbl { font-size: 0.6rem; color: #7daf7d; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
+    .count-val { font-size: 1.6rem; font-weight: 900; line-height: 1.05; }
+    .count-val.big { font-size: 2.6rem; }
+    .pos  { color: #4caf50; }
+    .neg  { color: #f44336; }
+    .zero { color: #ffd700; }
+
+    /* ─── Entry rec ─── */
+    .entry-rec {
+      text-align: center; padding: 8px 12px; border-radius: 8px;
+      margin-bottom: 8px; font-weight: 700; font-size: 1rem; letter-spacing: 0.4px;
+    }
+    .entry-rec .detail { font-weight: 400; font-size: 0.78rem; margin-top: 2px; opacity: 0.9; }
+    .lvl-excellent { background:#0d3d0d; color:#4caf50; border:2px solid #4caf50; }
+    .lvl-good      { background:#0e311e; color:#81c784; border:2px solid #81c784; }
+    .lvl-neutral   { background:#2e2a0a; color:#ffd700; border:2px solid #ffd700; }
+    .lvl-caution   { background:#2e1e0a; color:#ff9800; border:2px solid #ff9800; }
+    .lvl-bad       { background:#2e0a0a; color:#f44336; border:2px solid #f44336; }
+
+    /* ─── Advice ─── */
+    .advice-box {
+      text-align: center; padding: 13px 10px 9px; border-radius: 10px;
+      font-size: 2rem; font-weight: 900; letter-spacing: 3px; margin-bottom: 4px;
+    }
+    .advice-reason { text-align: center; font-size: 0.8rem; color: #888; margin-bottom: 9px; min-height: 1.2em; }
+    .adv-hit       { background:#0d2040; color:#64b5f6; border:2px solid #64b5f6; }
+    .adv-stand     { background:#2a0d40; color:#ce93d8; border:2px solid #ce93d8; }
+    .adv-double    { background:#0d3320; color:#66bb6a; border:2px solid #66bb6a; }
+    .adv-split     { background:#3a3000; color:#ffd700; border:2px solid #ffd700; }
+    .adv-surrender { background:#400d0d; color:#ef9a9a; border:2px solid #ef9a9a; }
+    .adv-blackjack { background:#3a2e00; color:#ffd700; border:2px solid #ffd700; }
+    .adv-bust      { background:#400d0d; color:#f44336; border:2px solid #f44336; }
+    .adv-none      { background:rgba(0,0,0,0.2); color:#444; border:1px solid #333; }
+
+    /* ─── TARGET INDICATOR (main visual focus) ─── */
+    .target-ind {
+      text-align: center;
+      font-size: 1.1rem;
+      font-weight: 900;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 13px 10px 10px;
+      border-radius: 10px;
+      margin-bottom: 9px;
+      border: 3px solid;
+      transition: background 0.2s, border-color 0.2s, color 0.2s;
+    }
+    .target-ind .tsub {
+      font-size: 0.73rem; font-weight: 500; letter-spacing: 0.3px;
+      margin-top: 4px; opacity: 0.85; text-transform: none;
+    }
+
+    /* Blue — my hand */
+    .t-mine   { background: rgba(13,64,160,0.22); color: #90caf9; border-color: #1e88e5; }
+    /* Amber — others */
+    .t-other  { background: rgba(230,115,0,0.16);  color: #ffe082; border-color: #fb8c00; }
+    /* Red — dealer */
+    .t-dealer { background: rgba(183,28,28,0.22);  color: #ef9a9a; border-color: #e53935; }
+    /* Bright red — dealer stopped */
+    .t-stop   { background: rgba(100,0,0,0.4);     color: #ff5252; border-color: #ff1744; }
+
+    @keyframes breathe {
+      0%   { box-shadow: 0 0 0   0px rgba(255,255,255,0.07); }
+      60%  { box-shadow: 0 0 12px 3px rgba(255,255,255,0.1); }
+      100% { box-shadow: 0 0 0   0px rgba(255,255,255,0.07); }
+    }
+    .target-ind { animation: breathe 2.4s ease-in-out infinite; }
+
+    /* ─── Phase tabs ─── */
+    .phase-tabs { display: flex; gap: 5px; margin-bottom: 7px; }
+    .phase-tab {
+      flex: 1; padding: 7px 4px; border-radius: 7px;
+      border: 1px solid #2d5a2d; background: rgba(0,0,0,0.3);
+      color: #4a7a4a; cursor: pointer; font-size: 0.79rem; font-weight: 700;
+      transition: all 0.12s; text-align: center; user-select: none;
+    }
+    .phase-tab:hover { background: rgba(255,255,255,0.05); color: #8ab08a; }
+    .phase-tab.active[data-phase="mine"]   { background:rgba(13,64,160,0.2);  border-color:#1e88e5; color:#90caf9; }
+    .phase-tab.active[data-phase="other"]  { background:rgba(230,115,0,0.15); border-color:#fb8c00; color:#ffe082; }
+    .phase-tab.active[data-phase="dealer"] { background:rgba(183,28,28,0.2);  border-color:#e53935; color:#ef9a9a; }
+    .phase-tab .kbd { font-size: 0.64rem; font-weight: 400; opacity: 0.55; }
+
+    /* kbd hint */
+    .kbd-hint { font-size: 0.64rem; color: #3d6a3d; text-align: center; margin-bottom: 7px; }
+
+    /* ─── Card grid ─── */
+    .card-grid { display: flex; flex-wrap: wrap; gap: 5px; }
+    .card-btn {
+      flex: 1; min-width: 40px; max-width: 58px;
+      padding: 10px 4px; border-radius: 7px; border: 1.5px solid;
+      cursor: pointer; font-size: 1rem; font-weight: 700;
+      transition: filter 0.1s, transform 0.08s, opacity 0.15s;
+      text-align: center; user-select: none;
+    }
+    .card-btn:hover:not(:disabled)  { filter: brightness(1.4); transform: translateY(-2px); }
+    .card-btn:active:not(:disabled) { transform: translateY(0); filter: brightness(0.9); }
+    .card-btn:disabled { opacity: 0.25; cursor: not-allowed; filter: grayscale(0.6); }
+
+    /* Card button colors — match target */
+    .cb-mine   { background:#0a2348; color:#90caf9; border-color:#1565c0; }
+    .cb-other  { background:#2a1e00; color:#ffe082; border-color:#e65100; }
+    .cb-dealer { background:#3a0c0c; color:#ef9a9a; border-color:#b71c1c; }
+
+    /* ─── Card entry wrap ─── */
+    .card-entry {
+      background: rgba(0,0,0,0.28); border: 1px solid #2d6e2d;
+      border-radius: 12px; padding: 10px; margin-bottom: 8px;
+    }
+
+    /* ─── Action buttons ─── */
+    .action-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+    .btn {
+      padding: 8px 14px; border-radius: 7px; border: none;
+      cursor: pointer; font-size: 0.85rem; font-weight: 700;
+      transition: opacity 0.12s, transform 0.08s; user-select: none;
+    }
+    .btn:hover  { opacity: 0.8; transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn-split     { background:#3a3000; color:#ffd700; border:1.5px solid #ffd700; }
+    .btn-next-hand { background:#0d2a3a; color:#4fc3f7; border:1px solid #4fc3f7; }
+    .btn-undo      { background:#3a2800; color:#ffa726; border:1px solid #ffa726; }
+    .btn-round     { background:#0d1f3a; color:#64b5f6; border:1px solid #64b5f6; }
+    .btn-shoe      { background:#3a0d0d; color:#ef9a9a; border:1px solid #ef9a9a; }
+    .btn-change    { background:#1a1a1a; color:#777; border:1px solid #444; font-size:0.75rem; padding:6px 10px; }
+
+    /* ─── Hands area ─── */
+    .hands-area { display: flex; gap: 8px; margin-bottom: 8px; }
+    @media (max-width: 480px) { .hands-area { flex-direction: column; } }
+
+    .my-hands-panel, .dealer-panel {
+      flex: 1; background: rgba(0,0,0,0.28);
+      border: 1.5px solid #2d5a2d; border-radius: 10px; padding: 10px; min-width: 0;
+      transition: border-color 0.2s;
+    }
+    .my-hands-panel.hi { border-color: #1e88e5; }
+    .dealer-panel.hi   { border-color: #e53935; }
+
+    .panel-title { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px; color: #7daf7d; margin-bottom: 7px; }
+    .panel-title.blue { color: #90caf9; }
+    .panel-title.red  { color: #ef9a9a; }
+
+    .hand-row { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 6px; margin-bottom: 4px; border: 1.5px solid transparent; }
+    .hand-row.active    { background:rgba(255,215,0,0.07); border-color:#ffd700; }
+    .hand-row.pending   { opacity: 0.38; }
+    .hand-row.completed { opacity: 0.55; }
+    .hand-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; min-width: 26px; color: #7daf7d; flex-shrink: 0; }
+    .hand-row.active .hand-label { color: #ffd700; }
+
+    .cards-row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+    .card-chip {
+      background: #fff; color: #111; border-radius: 5px;
+      width: 28px; height: 38px; display: flex; align-items: center; justify-content: center;
+      font-size: 0.85rem; font-weight: 700; box-shadow: 1px 2px 4px rgba(0,0,0,0.5);
+      position: relative; flex-shrink: 0;
+    }
+    .upcard-badge {
+      position: absolute; top: -7px; left: 50%; transform: translateX(-50%);
+      background: #e53935; color: #fff;
+      font-size: 0.42rem; font-weight: 900; padding: 1px 3px; border-radius: 2px; white-space: nowrap;
+    }
+    .total-badge { color: #ffd700; font-weight: 700; font-size: 0.88rem; margin-left: 2px; }
+    .empty-txt   { color: #3a6e3a; font-style: italic; font-size: 0.78rem; }
+
+    .dealer-stop-banner {
+      text-align: center; font-size: 0.82rem; font-weight: 900;
+      padding: 5px 8px; border-radius: 6px; margin-top: 6px;
+      background: rgba(150,0,0,0.28); color: #ff5252; border: 1px solid #c62828; letter-spacing: 0.5px;
+    }
+
+    /* ─── Setup modal ─── */
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.9); display:flex; align-items:center; justify-content:center; z-index:200; }
+    .modal { background:#0a2a0a; border:2px solid #ffd700; border-radius:18px; padding:30px 24px; text-align:center; max-width:330px; width:92%; }
+    .modal h2 { color:#ffd700; font-size:1.3rem; margin-bottom:6px; }
+    .modal p  { color:#888; margin-bottom:22px; font-size:0.87rem; }
+    .deck-options { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+    .deck-btn { background:#144a14; color:#e8e0d0; border:2px solid #2d8c2d; border-radius:10px; padding:12px 16px; cursor:pointer; font-size:1.3rem; font-weight:700; min-width:52px; transition:all 0.12s; }
+    .deck-btn:hover { background:#ffd700; color:#0a3d0a; border-color:#ffd700; transform:scale(1.07); }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<!-- Setup Modal -->
+<div class="modal-overlay" id="setupModal">
+  <div class="modal">
+    <h2>♠ Blackjack Assistant</h2>
+    <p>¿Cuántos mazos en la mesa?</p>
+    <div class="deck-options">
+      <button class="deck-btn" onclick="setup(1)">1</button>
+      <button class="deck-btn" onclick="setup(2)">2</button>
+      <button class="deck-btn" onclick="setup(4)">4</button>
+      <button class="deck-btn" onclick="setup(6)">6</button>
+      <button class="deck-btn" onclick="setup(8)">8</button>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Counts -->
+  <div class="top-counts">
+    <div class="count-block">
+      <div class="count-lbl">True Count</div>
+      <div class="count-val big zero" id="tcVal">0.0</div>
+    </div>
+    <div class="count-block">
+      <div class="count-lbl">Running Count</div>
+      <div class="count-val zero" id="rcVal">0</div>
+    </div>
+    <div class="count-block">
+      <div class="count-lbl">Mazos rest.</div>
+      <div class="count-val zero" id="remVal">—</div>
+    </div>
+    <div class="count-block">
+      <div class="count-lbl">Cartas vistas</div>
+      <div class="count-val zero" id="seenVal">0</div>
+    </div>
+  </div>
+
+  <!-- Entry rec -->
+  <div class="entry-rec lvl-neutral" id="entryRec">
+    <div id="entryText">—</div>
+    <div class="detail" id="entryDetail"></div>
+  </div>
+
+  <!-- Advice -->
+  <div class="advice-box adv-none" id="adviceBox">—</div>
+  <p class="advice-reason" id="adviceReason"></p>
+
+  <!-- Card entry -->
+  <div class="card-entry">
+
+    <!-- BIG TARGET INDICATOR -->
+    <div class="target-ind t-mine" id="targetInd">
+      <div id="tMain">🔵 PRÓXIMA CARTA → TU MANO</div>
+      <div class="tsub" id="tSub"></div>
+    </div>
+
+    <!-- Phase tabs -->
+    <div class="phase-tabs">
+      <button class="phase-tab active" data-phase="mine"   onclick="setPhase('mine')">
+        🔵 MI MANO <span class="kbd">[M]</span>
+      </button>
+      <button class="phase-tab" data-phase="other"  onclick="setPhase('other')">
+        🟡 OTROS <span class="kbd">[O]</span>
+      </button>
+      <button class="phase-tab" data-phase="dealer" onclick="setPhase('dealer')">
+        🔴 DEALER <span class="kbd">[D]</span>
+      </button>
+    </div>
+
+    <div class="kbd-hint">A · 2-9 · 0/T=10 · J · Q · K &nbsp;|&nbsp; Z=deshacer · N=nueva ronda</div>
+
+    <div class="card-grid" id="cardGrid"></div>
+  </div>
+
+  <!-- Split / next hand -->
+  <div class="action-row">
+    <button class="btn btn-split hidden"     id="splitBtn"    onclick="doSplit()">⚡ Split</button>
+    <button class="btn btn-next-hand hidden" id="nextHandBtn" onclick="nextHand()">→ Siguiente mano</button>
+  </div>
+
+  <!-- Hands: mine (blue) | dealer (red) -->
+  <div class="hands-area">
+    <div class="my-hands-panel" id="myPanel">
+      <div class="panel-title blue" id="myTitle">Mi mano</div>
+      <div id="myHandsDisplay"></div>
+    </div>
+    <div class="dealer-panel" id="dealerPanel">
+      <div class="panel-title red">Dealer</div>
+      <div id="dealerDisplay"><span class="empty-txt">Sin cartas</span></div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="action-row">
+    <button class="btn btn-undo"   onclick="undo()">↩ Deshacer</button>
+    <button class="btn btn-round"  onclick="newRound()">🔄 Nueva ronda</button>
+    <button class="btn btn-shoe"   onclick="newShoe()">♻ Nuevo mazo</button>
+    <button class="btn btn-change" onclick="changeDecks()">⚙ Mazos</button>
+  </div>
+
+</div>
+
+<script>
+  const CARDS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+  let phase = 'mine'; // 'mine' | 'other' | 'dealer'
+  let S = null;       // last server state
+
+  /* ── Phase ── */
+  function setPhase(p) {
+    phase = p;
+    document.querySelectorAll('.phase-tab').forEach(t =>
+      t.classList.toggle('active', t.dataset.phase === p)
+    );
+    refreshIndicator();
+  }
+
+  /* ─────────────────────────────────────────────────
+   * getTarget(): resolves WHERE the next card goes.
+   *
+   * Auto-deal rule (only when phase='mine'):
+   *   hand[0] has 0 cards         → mine  (1st card)
+   *   hand[0] has 1, dealer empty → mine  (2nd card)
+   *   hand[0] has 2+, dealer empty→ dealer (upcard)
+   * ───────────────────────────────────────────────── */
+  function getTarget() {
+    if (!S || S.setup_required || phase !== 'mine') return phase;
+    const p0 = S.hands?.[0]?.cards ?? [];
+    const dl = S.dealer_hand ?? [];
+    if (p0.length === 0)                   return 'mine';
+    if (p0.length === 1 && dl.length === 0) return 'mine';
+    if (p0.length >= 2 && dl.length === 0) return 'dealer';
+    return 'mine';
+  }
+
+  const dealerStopped = () =>
+    S?.dealer_hand?.length > 0 && S.dealer_total != null && S.dealer_total >= 17;
+
+  const myHandStopped = () => {
+    const h = S?.hands?.[S.active_hand];
+    return h?.cards?.length > 0 && h.total >= 21;
+  };
+
+  /* ── Refresh the big indicator + card button colors/state ── */
+  function refreshIndicator() {
+    if (!S || S.setup_required) return;
+
+    const target   = getTarget();
+    const dStop    = dealerStopped();
+    const mStop    = myHandStopped() && phase === 'mine';
+
+    /* Determine indicator class */
+    let indClass = target === 'mine' ? 't-mine' : target === 'dealer' ? 't-dealer' : 't-other';
+    if (target === 'dealer' && dStop) indClass = 't-stop';
+
+    /* Determine label text */
+    const p0 = S.hands?.[0]?.cards ?? [];
+    const dl = S.dealer_hand ?? [];
+    let main, sub = '';
+
+    if (phase === 'mine' && p0.length === 0 && dl.length === 0) {
+      main = '🔵 REPARTO → TU PRIMERA CARTA';
+    } else if (phase === 'mine' && p0.length === 1 && dl.length === 0) {
+      main = '🔵 REPARTO → TU SEGUNDA CARTA';
+    } else if (phase === 'mine' && p0.length >= 2 && dl.length === 0) {
+      main = '🔴 REPARTO → UPCARD DEL DEALER';
+      indClass = 't-dealer';
+    } else if (target === 'dealer' && dStop) {
+      main = `🛑 DEALER SE PLANTA — ${S.dealer_total}${S.dealer_soft ? 's' : ''}`;
+      sub  = 'No se pueden agregar más cartas al dealer';
+    } else if (mStop) {
+      const h = S.hands[S.active_hand];
+      const adv = S.advice?.action;
+      if (adv === 'blackjack') {
+        main = '🔵 TU MANO — ¡BLACKJACK!';
+      } else if (h.total > 21) {
+        main = `🔵 TU MANO — BUST (${h.total})`;
+      } else {
+        main = `🔵 TU MANO — 21`;
+      }
+      sub = S.has_next_hand
+        ? 'Presiona → Siguiente mano'
+        : 'Cambia a 🟡 OTROS para seguir';
+    } else {
+      main = { mine: '🔵 PRÓXIMA CARTA → TU MANO',
+               other:'🟡 PRÓXIMA CARTA → OTROS JUGADORES',
+               dealer:'🔴 PRÓXIMA CARTA → DEALER' }[target];
+    }
+
+    document.getElementById('targetInd').className = 'target-ind ' + indClass;
+    document.getElementById('tMain').textContent = main;
+    document.getElementById('tSub').textContent  = sub;
+
+    /* Card buttons: color + disabled */
+    const cbCls   = target === 'mine' ? 'cb-mine' : target === 'dealer' ? 'cb-dealer' : 'cb-other';
+    const disabled = (target === 'dealer' && dStop) || (target === 'mine' && mStop);
+    document.querySelectorAll('.card-btn').forEach(b => {
+      b.className = 'card-btn ' + cbCls;
+      b.disabled  = disabled;
+    });
+
+    /* Panel borders */
+    document.getElementById('myPanel').classList.toggle('hi',    phase === 'mine');
+    document.getElementById('dealerPanel').classList.toggle('hi', phase === 'dealer');
+  }
+
+  /* ── Helpers ── */
+  const sign      = n => n > 0 ? `+${n}` : `${n}`;
+  const colorCls  = n => n > 0 ? 'pos' : n < 0 ? 'neg' : 'zero';
+
+  function chip(val, isUp = false) {
+    const d = document.createElement('div');
+    d.className = 'card-chip';
+    d.textContent = val;
+    if (isUp) {
+      const b = document.createElement('span');
+      b.className = 'upcard-badge';
+      b.textContent = 'UP';
+      d.appendChild(b);
+    }
+    return d;
+  }
+
+  /* ── Render ── */
+  function render(data) {
+    S = data;
+    if (data.setup_required) return;
+
+    /* Counts */
+    const rcEl = document.getElementById('rcVal');
+    rcEl.textContent = sign(data.running_count);
+    rcEl.className   = 'count-val ' + colorCls(data.running_count);
+
+    const tcEl = document.getElementById('tcVal');
+    tcEl.textContent = (data.true_count >= 0 ? '+' : '') + data.true_count.toFixed(1);
+    tcEl.className   = 'count-val big ' + colorCls(data.true_count);
+
+    document.getElementById('remVal').textContent  = data.remaining_decks;
+    document.getElementById('seenVal').textContent = data.cards_seen;
+
+    /* Entry rec */
+    const er = data.entry_recommendation;
+    document.getElementById('entryRec').className = 'entry-rec lvl-' + er.level;
+    document.getElementById('entryText').textContent   = er.text;
+    document.getElementById('entryDetail').textContent = er.detail;
+
+    /* Advice */
+    const adv = data.advice;
+    if (adv?.action_name) {
+      const suf = data.hands.length > 1 ? ` (M${data.active_hand + 1})` : '';
+      document.getElementById('adviceBox').textContent = adv.action_name + suf;
+      document.getElementById('adviceBox').className   = 'advice-box adv-' + (adv.color || 'none');
+      document.getElementById('adviceReason').textContent = adv.reason || '';
+    }
+
+    /* My hands */
+    const disp  = document.getElementById('myHandsDisplay');
+    disp.innerHTML = '';
+    const total = data.hands.length;
+    document.getElementById('myTitle').textContent =
+      total > 1 ? `Mis manos (${data.active_hand + 1}/${total})` : 'Mi mano';
+
+    data.hands.forEach((h, i) => {
+      const isActive  = i === data.active_hand;
+      const isPending = i > data.active_hand;
+      const row = document.createElement('div');
+      row.className = 'hand-row' + (isActive ? ' active' : isPending ? ' pending' : ' completed');
+      const lbl = document.createElement('div');
+      lbl.className   = 'hand-label';
+      lbl.textContent = total > 1 ? `M${i + 1}` : '▶';
+      row.appendChild(lbl);
+      const cards = document.createElement('div');
+      cards.className = 'cards-row';
+      if (h.cards.length > 0) {
+        h.cards.forEach(c => cards.appendChild(chip(c)));
+        const b = document.createElement('span');
+        b.className   = 'total-badge';
+        b.textContent = '= ' + h.total + (h.soft ? 's' : '');
+        cards.appendChild(b);
+      } else {
+        cards.innerHTML = '<span class="empty-txt">Sin cartas</span>';
+      }
+      row.appendChild(cards);
+      disp.appendChild(row);
+    });
+
+    /* Split / next-hand */
+    document.getElementById('splitBtn').classList.toggle('hidden',    !data.can_split);
+    document.getElementById('nextHandBtn').classList.toggle('hidden', !data.has_next_hand);
+
+    /* Dealer */
+    const dd = document.getElementById('dealerDisplay');
+    dd.innerHTML = '';
+    if (data.dealer_hand?.length > 0) {
+      const row = document.createElement('div');
+      row.className = 'cards-row';
+      data.dealer_hand.forEach((c, i) => row.appendChild(chip(c, i === 0)));
+      const b = document.createElement('span');
+      b.className   = 'total-badge';
+      b.textContent = '= ' + data.dealer_total + (data.dealer_soft ? 's' : '');
+      row.appendChild(b);
+      dd.appendChild(row);
+      if (data.dealer_total >= 17) {
+        const banner = document.createElement('div');
+        banner.className   = 'dealer-stop-banner';
+        banner.textContent = `🛑 DEALER PARA — ${data.dealer_total}${data.dealer_soft ? 's' : ''}`;
+        dd.appendChild(banner);
+      }
+    } else {
+      dd.innerHTML = '<span class="empty-txt">Sin cartas</span>';
+    }
+
+    refreshIndicator();
+  }
+
+  /* ── API ── */
+  async function api(method, path, body) {
+    const opts = { method, headers: { 'Content-Type': 'application/json' } };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(path, opts);
+    if (!res.ok) { const e = await res.json().catch(() => ({})); alert('Error: ' + (e.detail || res.statusText)); return null; }
+    return res.json();
+  }
+
+  async function registerCard(card) {
+    const d = await api('POST', '/api/card', { card, target: getTarget() });
+    if (d) render(d);
+  }
+  async function setup(n) {
+    const d = await api('POST', '/api/setup', { num_decks: n });
+    if (d) { document.getElementById('setupModal').classList.add('hidden'); render(d); }
+  }
+  async function undo()     { const d = await api('POST', '/api/undo');      if (d) render(d); }
+  async function newRound() { const d = await api('POST', '/api/new-round'); if (d) render(d); }
+  async function doSplit()  { const d = await api('POST', '/api/split');     if (d) render(d); }
+  async function nextHand() { const d = await api('POST', '/api/next-hand'); if (d) render(d); }
+  async function newShoe()  {
+    if (!confirm('¿Resetear todo el conteo del mazo?')) return;
+    const d = await api('POST', '/api/new-shoe');
+    if (d) render(d);
+  }
+  function changeDecks() { document.getElementById('setupModal').classList.remove('hidden'); }
+
+  /* ── Keyboard ── */
+  const KEY_MAP = {
+    'a':'A','2':'2','3':'3','4':'4','5':'5','6':'6','7':'7','8':'8','9':'9',
+    '0':'10','t':'10','j':'J','q':'Q','k':'K'
+  };
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (!S || S.setup_required) return;
+    const key = e.key.toLowerCase();
+    if (key in KEY_MAP) { e.preventDefault(); registerCard(KEY_MAP[key]); return; }
+    if (key === 'm') { e.preventDefault(); setPhase('mine');   return; }
+    if (key === 'o') { e.preventDefault(); setPhase('other');  return; }
+    if (key === 'd') { e.preventDefault(); setPhase('dealer'); return; }
+    if (key === 'z') { e.preventDefault(); undo();             return; }
+    if (key === 'n') { e.preventDefault(); newRound();         return; }
+  });
+
+  /* ── Build card grid (once) ── */
+  (function() {
+    const grid = document.getElementById('cardGrid');
+    CARDS.forEach(c => {
+      const b = document.createElement('button');
+      b.className   = 'card-btn cb-mine';
+      b.textContent = c;
+      b.onclick     = () => registerCard(c);
+      grid.appendChild(b);
+    });
+  })();
+
+  /* ── Init ── */
+  fetch('/api/state').then(r => r.json()).then(data => {
+    if (!data.setup_required) {
+      document.getElementById('setupModal').classList.add('hidden');
+      render(data);
+    }
+  });
+</script>
+</body>
+</html>
