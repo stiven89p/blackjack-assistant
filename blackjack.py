@@ -216,6 +216,19 @@ def get_true_count(running_count: int, cards_seen: int, num_decks: int) -> float
     return round(running_count / remaining_decks, 2)
 
 
+def get_recommended_bet(true_count: float, min_bet: float, max_bet: float) -> float:
+    """Returns recommended bet based on Hi-Lo true count spread (1-2-4-8 units)."""
+    if true_count < 1:
+        mult = 1
+    elif true_count < 2:
+        mult = 2
+    elif true_count < 3:
+        mult = 4
+    else:
+        mult = 8
+    return min(min_bet * mult, max_bet)
+
+
 def get_entry_recommendation(true_count: float) -> dict:
     tc = true_count
     sign = '+' if tc >= 0 else ''

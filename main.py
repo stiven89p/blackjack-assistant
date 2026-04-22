@@ -13,6 +13,17 @@ state = {
     'active_hand': 0,   # index of the hand currently being played
     'dealer_hand': [],
     'history': [],      # for undo support
+    'session': {
+        'active': False,
+        'bankroll': 0.0,
+        'initial_bankroll': 0.0,
+        'min_bet': 0.0,
+        'max_bet': 0.0,
+        'round_history': [],        # list of archived rounds
+        'current_round_cards': [],  # cards dealt in this round
+        'round_num': 1,
+        'recommended_bet_current': 0.0,  # bet captured at round start
+    },
 }
 
 
@@ -23,6 +34,16 @@ class SetupRequest(BaseModel):
 class CardRequest(BaseModel):
     card: str
     target: str  # 'mine' | 'dealer' | 'other'
+
+
+class SessionSetupRequest(BaseModel):
+    bankroll: float
+    min_bet: float
+    max_bet: float
+
+
+class RoundResultRequest(BaseModel):
+    result: str  # 'win' | 'push' | 'loss'
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -56,6 +77,12 @@ def register_card(req: CardRequest):
     if req.target not in ('mine', 'dealer', 'other'):
         raise HTTPException(400, "Target debe ser 'mine', 'dealer' u 'other'")
 
+    s = state['session']
+    if s['active'] and len(s['current_round_cards']) == 0:
+        # Capture recommended bet before first card changes the count
+        tc_now = bj.get_true_count(state['running_count'], state['cards_seen'], state['num_decks'])
+        s['recommended_bet_current'] = bj.get_recommended_bet(tc_now, s['min_bet'], s['max_bet'])
+
     state['running_count'] += bj.HILO_VALUES[req.card]
     state['cards_seen'] += 1
     state['history'].append({
@@ -64,6 +91,9 @@ def register_card(req: CardRequest):
         'target': req.target,
         'hand_index': state['active_hand'],
     })
+
+    if s['active']:
+        s['current_round_cards'].append(req.card)
 
     if req.target == 'mine':
         state['my_hands'][state['active_hand']].append(req.card)
@@ -114,6 +144,9 @@ def undo():
             state['my_hands'][hi].pop()
         elif last['target'] == 'dealer' and state['dealer_hand']:
             state['dealer_hand'].pop()
+        s = state['session']
+        if s['active'] and s['current_round_cards']:
+            s['current_round_cards'].pop()
 
     elif last['action'] == 'split':
         hi = last['hand_index']
@@ -132,6 +165,22 @@ def undo():
 @app.post("/api/new-round")
 def new_round():
     """Clears all hands and dealer hand, keeps deck count."""
+    s = state['session']
+    if s['active'] and s['current_round_cards']:
+        nd = state['num_decks']
+        tc = bj.get_true_count(state['running_count'], state['cards_seen'], nd)
+        s['round_history'].append({
+            'round': s['round_num'],
+            'cards': list(s['current_round_cards']),
+            'tc_end': tc,
+            'rc_end': state['running_count'],
+            'recommended_bet': s['recommended_bet_current'],
+            'result': None,
+            'pnl': None,
+        })
+        s['round_num'] += 1
+        s['current_round_cards'] = []
+
     state['my_hands'] = [[]]
     state['active_hand'] = 0
     state['dealer_hand'] = []
@@ -155,6 +204,60 @@ def new_shoe():
 
 @app.get("/api/state")
 def get_state():
+    return _build_response()
+
+
+@app.post("/api/session-setup")
+def session_setup(req: SessionSetupRequest):
+    if req.bankroll <= 0 or req.min_bet <= 0 or req.max_bet <= 0:
+        raise HTTPException(400, "Los valores deben ser positivos")
+    if req.min_bet > req.max_bet:
+        raise HTTPException(400, "La apuesta mínima no puede ser mayor que la máxima")
+    s = state['session']
+    s.update({
+        'active': True,
+        'bankroll': round(req.bankroll, 2),
+        'initial_bankroll': round(req.bankroll, 2),
+        'min_bet': round(req.min_bet, 2),
+        'max_bet': round(req.max_bet, 2),
+        'round_history': [],
+        'current_round_cards': [],
+        'round_num': 1,
+        'recommended_bet_current': round(req.min_bet, 2),
+    })
+    return _build_response()
+
+
+@app.post("/api/round-result")
+def round_result(req: RoundResultRequest):
+    if req.result not in ('win', 'push', 'loss'):
+        raise HTTPException(400, "Resultado debe ser 'win', 'push' o 'loss'")
+    s = state['session']
+    if not s['active'] or not s['round_history']:
+        raise HTTPException(400, "No hay ronda archivada para registrar resultado")
+    last = s['round_history'][-1]
+    if last.get('result') is not None:
+        raise HTTPException(400, "El resultado de esta ronda ya fue registrado")
+    bet = last['recommended_bet']
+    pnl = bet if req.result == 'win' else (-bet if req.result == 'loss' else 0.0)
+    s['bankroll'] = round(s['bankroll'] + pnl, 2)
+    last['result'] = req.result
+    last['pnl'] = round(pnl, 2)
+    return _build_response()
+
+
+@app.post("/api/session-reset")
+def session_reset():
+    """Resets session stats without touching the shoe count."""
+    s = state['session']
+    if s['active']:
+        s.update({
+            'bankroll': s['initial_bankroll'],
+            'round_history': [],
+            'current_round_cards': [],
+            'round_num': 1,
+            'recommended_bet_current': s['min_bet'],
+        })
     return _build_response()
 
 
@@ -185,6 +288,26 @@ def _build_response() -> dict:
     advice = bj.get_advice(active_hand, dealer_upcard)
     entry = bj.get_entry_recommendation(tc)
 
+    s = state['session']
+    session_data = None
+    if s['active']:
+        rec_bet = bj.get_recommended_bet(tc, s['min_bet'], s['max_bet'])
+        has_pending = bool(s['round_history'] and s['round_history'][-1]['result'] is None)
+        session_data = {
+            'active': True,
+            'bankroll': s['bankroll'],
+            'initial_bankroll': s['initial_bankroll'],
+            'pnl_total': round(s['bankroll'] - s['initial_bankroll'], 2),
+            'min_bet': s['min_bet'],
+            'max_bet': s['max_bet'],
+            'recommended_bet': rec_bet,
+            'recommended_bet_current': s['recommended_bet_current'],
+            'round_num': s['round_num'],
+            'current_round_cards': s['current_round_cards'],
+            'round_history': s['round_history'],
+            'has_pending_result': has_pending,
+        }
+
     return {
         'setup_required': False,
         'num_decks': nd,
@@ -202,4 +325,5 @@ def _build_response() -> dict:
         'dealer_soft': dealer_soft,
         'advice': advice,
         'entry_recommendation': entry,
+        'session': session_data,
     }

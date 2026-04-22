@@ -211,6 +211,89 @@
     .deck-btn:hover { background:#ffd700; color:#0a3d0a; border-color:#ffd700; transform:scale(1.07); }
 
     .hidden { display: none !important; }
+
+    /* ─── Session / Historial ─── */
+    .session-panel {
+      background: rgba(0,0,0,0.32); border: 1.5px solid #2d6e2d;
+      border-radius: 12px; padding: 11px; margin-bottom: 8px;
+    }
+    .session-title {
+      font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1.2px;
+      color: #ffd700; margin-bottom: 10px; font-weight: 700;
+    }
+
+    /* Setup form */
+    .session-form { display: flex; gap: 6px; flex-wrap: wrap; align-items: flex-end; }
+    .session-form label { font-size: 0.6rem; color: #7daf7d; text-transform: uppercase; letter-spacing: 0.6px; display: block; margin-bottom: 3px; }
+    .session-input {
+      background: rgba(0,0,0,0.4); border: 1px solid #3a7a3a; border-radius: 6px;
+      color: #e8e0d0; font-size: 0.88rem; padding: 7px 8px; width: 110px;
+      outline: none; transition: border-color 0.15s;
+    }
+    .session-input:focus { border-color: #ffd700; }
+    .session-input::placeholder { color: #3d6a3d; }
+    .btn-session-start {
+      background: #0d3d0d; color: #ffd700; border: 1.5px solid #ffd700;
+      border-radius: 7px; padding: 8px 14px; cursor: pointer; font-size: 0.85rem;
+      font-weight: 700; transition: all 0.12s; white-space: nowrap;
+    }
+    .btn-session-start:hover { background: #ffd700; color: #0a2a0a; }
+
+    /* Active session stats */
+    .session-stats { display: flex; gap: 7px; margin-bottom: 9px; flex-wrap: wrap; }
+    .sstat {
+      flex: 1; min-width: 110px; background: rgba(0,0,0,0.3);
+      border: 1px solid #2d5a2d; border-radius: 8px; padding: 7px 10px; text-align: center;
+    }
+    .sstat-lbl { font-size: 0.58rem; color: #7daf7d; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 3px; }
+    .sstat-val { font-size: 1.3rem; font-weight: 900; line-height: 1; }
+    .sstat-sub { font-size: 0.68rem; color: #666; margin-top: 2px; }
+    .sstat-bet { border-color: #ffd700; }
+    .sstat-bet .sstat-lbl { color: #ffd700; }
+    .sstat-bet .sstat-val { color: #ffd700; }
+
+    /* Round result buttons */
+    .result-row { display: flex; gap: 6px; margin-bottom: 9px; }
+    .result-row label { font-size: 0.62rem; color: #7daf7d; display: flex; align-items: center; margin-right: 4px; text-transform: uppercase; letter-spacing: 0.6px; flex-shrink: 0; }
+    .btn-result {
+      flex: 1; padding: 7px 4px; border-radius: 7px; border: 1.5px solid;
+      cursor: pointer; font-size: 0.8rem; font-weight: 700; transition: all 0.12s; text-align: center;
+    }
+    .btn-win    { background:#0d3d0d; color:#4caf50; border-color:#4caf50; }
+    .btn-push   { background:#2e2a0a; color:#ffd700; border-color:#ffd700; }
+    .btn-loss   { background:#2e0a0a; color:#f44336; border-color:#f44336; }
+    .btn-win:hover  { background:#4caf50; color:#0a2a0a; }
+    .btn-push:hover { background:#ffd700; color:#1a1a0a; }
+    .btn-loss:hover { background:#f44336; color:#fff; }
+
+    /* History table */
+    .hist-table { font-size: 0.75rem; width: 100%; border-collapse: separate; border-spacing: 0 3px; }
+    .hist-head th {
+      font-size: 0.58rem; color: #7daf7d; text-transform: uppercase; letter-spacing: 0.6px;
+      padding: 3px 5px; text-align: left; font-weight: 600;
+    }
+    .hist-row td { padding: 4px 5px; background: rgba(0,0,0,0.25); }
+    .hist-row td:first-child { border-radius: 5px 0 0 5px; }
+    .hist-row td:last-child  { border-radius: 0 5px 5px 0; }
+    .hist-round { color: #7daf7d; font-weight: 700; min-width: 20px; }
+    .hist-cards { display: flex; flex-wrap: wrap; gap: 2px; }
+    .mini-chip {
+      background: #ddd; color: #111; border-radius: 3px;
+      padding: 1px 4px; font-size: 0.68rem; font-weight: 700;
+    }
+    .hist-tc { font-weight: 700; min-width: 36px; }
+    .hist-bet { color: #ffd700; font-weight: 700; white-space: nowrap; }
+    .hist-res { font-weight: 900; min-width: 24px; text-align: center; }
+    .hist-pnl { font-weight: 700; min-width: 50px; text-align: right; white-space: nowrap; }
+    .res-win  { color: #4caf50; }
+    .res-push { color: #ffd700; }
+    .res-loss { color: #f44336; }
+    .res-none { color: #444; font-style: italic; }
+
+    .session-footer { display: flex; gap: 6px; margin-top: 9px; justify-content: flex-end; }
+    .btn-sess-reset { background:rgba(0,0,0,0.3); color:#666; border:1px solid #444; border-radius:6px; padding:5px 10px; cursor:pointer; font-size:0.73rem; transition:all 0.12s; }
+    .btn-sess-reset:hover { color:#f44336; border-color:#f44336; }
+    .no-history { color:#3a6e3a; font-style:italic; font-size:0.78rem; text-align:center; padding:8px 0; }
   </style>
 </head>
 <body>
@@ -313,6 +396,83 @@
     <button class="btn btn-round"  onclick="newRound()">🔄 Nueva ronda</button>
     <button class="btn btn-shoe"   onclick="newShoe()">♻ Nuevo mazo</button>
     <button class="btn btn-change" onclick="changeDecks()">⚙ Mazos</button>
+  </div>
+
+  <!-- ═══════════════ HISTORIAL DE SESIÓN ═══════════════ -->
+  <div class="session-panel">
+    <div class="session-title">💰 Historial de Sesión</div>
+
+    <!-- Setup form (when no session active) -->
+    <div id="sessSetup">
+      <div class="session-form">
+        <div>
+          <label for="inputBankroll">Bankroll inicial</label>
+          <input class="session-input" id="inputBankroll" type="number" min="1" placeholder="$ 500" />
+        </div>
+        <div>
+          <label for="inputMinBet">Apuesta mínima</label>
+          <input class="session-input" id="inputMinBet" type="number" min="1" placeholder="$ 10" />
+        </div>
+        <div>
+          <label for="inputMaxBet">Apuesta máxima</label>
+          <input class="session-input" id="inputMaxBet" type="number" min="1" placeholder="$ 100" />
+        </div>
+        <button class="btn-session-start" onclick="startSession()">Iniciar sesión</button>
+      </div>
+    </div>
+
+    <!-- Active session view -->
+    <div id="sessActive" class="hidden">
+
+      <!-- Stats row -->
+      <div class="session-stats">
+        <div class="sstat">
+          <div class="sstat-lbl">Bankroll</div>
+          <div class="sstat-val" id="sessBank">$0</div>
+          <div class="sstat-sub" id="sessPnl"></div>
+        </div>
+        <div class="sstat sstat-bet">
+          <div class="sstat-lbl">Apuesta sugerida</div>
+          <div class="sstat-val" id="sessRecBet">$0</div>
+          <div class="sstat-sub" id="sessBetLimits"></div>
+        </div>
+        <div class="sstat">
+          <div class="sstat-lbl">Rondas jugadas</div>
+          <div class="sstat-val" id="sessRounds">0</div>
+          <div class="sstat-sub" id="sessWinLoss">W: 0 · L: 0</div>
+        </div>
+      </div>
+
+      <!-- Result buttons for last archived round -->
+      <div class="result-row hidden" id="resultRow">
+        <label>Ronda anterior:</label>
+        <button class="btn-result btn-win"  onclick="recordResult('win')">✓ GANAR</button>
+        <button class="btn-result btn-push" onclick="recordResult('push')">= PUSH</button>
+        <button class="btn-result btn-loss" onclick="recordResult('loss')">✗ PERDER</button>
+      </div>
+
+      <!-- History table -->
+      <div id="sessHistContainer">
+        <p class="no-history" id="sessEmpty">Aún no hay rondas archivadas. Juega y presiona "Nueva ronda".</p>
+        <table class="hist-table hidden" id="sessTable">
+          <thead>
+            <tr class="hist-head">
+              <th>#</th>
+              <th>Cartas de la ronda</th>
+              <th>TC</th>
+              <th>Apuesta</th>
+              <th>Res.</th>
+              <th style="text-align:right">P&L</th>
+            </tr>
+          </thead>
+          <tbody id="sessTableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="session-footer">
+        <button class="btn-sess-reset" onclick="resetSession()">Reiniciar sesión</button>
+      </div>
+    </div>
   </div>
 
 </div>
@@ -421,6 +581,7 @@
   }
 
   /* ── Helpers ── */
+
   const sign      = n => n > 0 ? `+${n}` : `${n}`;
   const colorCls  = n => n > 0 ? 'pos' : n < 0 ? 'neg' : 'zero';
 
@@ -527,6 +688,7 @@
     }
 
     refreshIndicator();
+    renderSession(data.session || null);
   }
 
   /* ── API ── */
@@ -585,6 +747,134 @@
       grid.appendChild(b);
     });
   })();
+
+  /* ── Session ── */
+  function fmt(amount) {
+    return (amount < 0 ? '-$' : '$') + Math.abs(amount).toLocaleString('es', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  }
+
+  function renderSession(sess) {
+    const setup  = document.getElementById('sessSetup');
+    const active = document.getElementById('sessActive');
+    if (!sess) { setup.classList.remove('hidden'); active.classList.add('hidden'); return; }
+
+    setup.classList.add('hidden');
+    active.classList.remove('hidden');
+
+    // Stats
+    const bankEl = document.getElementById('sessBank');
+    bankEl.textContent = fmt(sess.bankroll);
+    bankEl.className = 'sstat-val ' + colorCls(sess.pnl_total);
+
+    const pnlEl = document.getElementById('sessPnl');
+    pnlEl.textContent = (sess.pnl_total >= 0 ? '+' : '') + fmt(sess.pnl_total) + ' vs inicial';
+    pnlEl.style.color = sess.pnl_total > 0 ? '#4caf50' : sess.pnl_total < 0 ? '#f44336' : '#666';
+
+    document.getElementById('sessRecBet').textContent = fmt(sess.recommended_bet);
+    document.getElementById('sessBetLimits').textContent = `Rango: ${fmt(sess.min_bet)} – ${fmt(sess.max_bet)}`;
+
+    const hist = sess.round_history;
+    document.getElementById('sessRounds').textContent = hist.length;
+    const wins   = hist.filter(r => r.result === 'win').length;
+    const losses = hist.filter(r => r.result === 'loss').length;
+    document.getElementById('sessWinLoss').textContent = `W: ${wins} · L: ${losses}`;
+
+    // Pending result buttons
+    document.getElementById('resultRow').classList.toggle('hidden', !sess.has_pending_result);
+
+    // History table
+    const empty = document.getElementById('sessEmpty');
+    const table = document.getElementById('sessTable');
+    const tbody = document.getElementById('sessTableBody');
+
+    if (hist.length === 0) {
+      empty.classList.remove('hidden');
+      table.classList.add('hidden');
+    } else {
+      empty.classList.add('hidden');
+      table.classList.remove('hidden');
+      tbody.innerHTML = '';
+      // Show most recent rounds first
+      [...hist].reverse().forEach(r => {
+        const tr = document.createElement('tr');
+        tr.className = 'hist-row';
+
+        // Round #
+        const tdNum = document.createElement('td');
+        tdNum.className = 'hist-round';
+        tdNum.textContent = r.round;
+
+        // Cards
+        const tdCards = document.createElement('td');
+        const chipsDiv = document.createElement('div');
+        chipsDiv.className = 'hist-cards';
+        r.cards.forEach(c => {
+          const sp = document.createElement('span');
+          sp.className = 'mini-chip';
+          sp.textContent = c;
+          chipsDiv.appendChild(sp);
+        });
+        tdCards.appendChild(chipsDiv);
+
+        // TC
+        const tdTc = document.createElement('td');
+        tdTc.className = 'hist-tc ' + colorCls(r.tc_end);
+        tdTc.textContent = (r.tc_end >= 0 ? '+' : '') + r.tc_end.toFixed(1);
+
+        // Bet
+        const tdBet = document.createElement('td');
+        tdBet.className = 'hist-bet';
+        tdBet.textContent = fmt(r.recommended_bet);
+
+        // Result
+        const tdRes = document.createElement('td');
+        tdRes.className = 'hist-res';
+        if (r.result === 'win')       { tdRes.textContent = 'W'; tdRes.classList.add('res-win'); }
+        else if (r.result === 'push') { tdRes.textContent = '='; tdRes.classList.add('res-push'); }
+        else if (r.result === 'loss') { tdRes.textContent = 'L'; tdRes.classList.add('res-loss'); }
+        else                          { tdRes.textContent = '?'; tdRes.classList.add('res-none'); }
+
+        // P&L
+        const tdPnl = document.createElement('td');
+        tdPnl.className = 'hist-pnl';
+        if (r.pnl !== null) {
+          tdPnl.textContent = (r.pnl >= 0 ? '+' : '') + fmt(r.pnl);
+          tdPnl.style.color = r.pnl > 0 ? '#4caf50' : r.pnl < 0 ? '#f44336' : '#666';
+        } else {
+          tdPnl.textContent = '—';
+          tdPnl.style.color = '#444';
+        }
+
+        tr.appendChild(tdNum);
+        tr.appendChild(tdCards);
+        tr.appendChild(tdTc);
+        tr.appendChild(tdBet);
+        tr.appendChild(tdRes);
+        tr.appendChild(tdPnl);
+        tbody.appendChild(tr);
+      });
+    }
+  }
+
+  async function startSession() {
+    const bankroll = parseFloat(document.getElementById('inputBankroll').value);
+    const minBet   = parseFloat(document.getElementById('inputMinBet').value);
+    const maxBet   = parseFloat(document.getElementById('inputMaxBet').value);
+    if (!bankroll || !minBet || !maxBet) { alert('Completa todos los campos de la sesión.'); return; }
+    const d = await api('POST', '/api/session-setup', { bankroll, min_bet: minBet, max_bet: maxBet });
+    if (d) render(d);
+  }
+
+  async function recordResult(result) {
+    const d = await api('POST', '/api/round-result', { result });
+    if (d) render(d);
+  }
+
+  async function resetSession() {
+    if (!confirm('¿Reiniciar la sesión? Se perderá el historial.')) return;
+    const d = await api('POST', '/api/session-reset');
+    if (d) render(d);
+  }
 
   /* ── Init ── */
   fetch('/api/state').then(r => r.json()).then(data => {
