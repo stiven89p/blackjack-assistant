@@ -201,6 +201,22 @@
       background: rgba(150,0,0,0.28); color: #ff5252; border: 1px solid #c62828; letter-spacing: 0.5px;
     }
 
+    /* ─── Insurance banner ─── */
+    .insurance-banner {
+      text-align: center; padding: 7px 12px; border-radius: 8px;
+      margin-bottom: 7px; font-weight: 700; font-size: 0.9rem; letter-spacing: 0.3px;
+    }
+    .ins-take   { background:#0d3d0d; color:#4caf50; border:1.5px solid #4caf50; }
+    .ins-skip   { background:#2e0a0a; color:#f44336; border:1.5px solid #f44336; }
+    .ins-detail { font-size:0.7rem; font-weight:400; margin-top:2px; opacity:0.85; }
+
+    /* ─── I18 deviation badge on advice box ─── */
+    .i18-badge {
+      display: inline-block; background: #ff6f00; color: #fff;
+      font-size: 0.6rem; font-weight: 900; padding: 2px 6px; border-radius: 4px;
+      letter-spacing: 0.5px; vertical-align: middle; margin-left: 6px;
+    }
+
     /* ─── Setup modal ─── */
     .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.9); display:flex; align-items:center; justify-content:center; z-index:200; }
     .modal { background:#0a2a0a; border:2px solid #ffd700; border-radius:18px; padding:30px 24px; text-align:center; max-width:330px; width:92%; }
@@ -294,6 +310,21 @@
     .btn-sess-reset { background:rgba(0,0,0,0.3); color:#666; border:1px solid #444; border-radius:6px; padding:5px 10px; cursor:pointer; font-size:0.73rem; transition:all 0.12s; }
     .btn-sess-reset:hover { color:#f44336; border-color:#f44336; }
     .no-history { color:#3a6e3a; font-style:italic; font-size:0.78rem; text-align:center; padding:8px 0; }
+
+    /* Auto-result banner */
+    .auto-result-banner {
+      text-align: center; border-radius: 9px; padding: 10px 12px;
+      margin-bottom: 9px; font-weight: 900; font-size: 1.15rem; letter-spacing: 1px;
+      border: 2px solid; animation: popIn 0.25s ease-out;
+    }
+    .auto-result-banner .ar-sub { font-size: 0.72rem; font-weight: 500; margin-top: 3px; opacity: 0.85; }
+    .ar-win  { background:#0d3d0d; color:#4caf50; border-color:#4caf50; }
+    .ar-push { background:#2e2a0a; color:#ffd700; border-color:#ffd700; }
+    .ar-loss { background:#2e0a0a; color:#f44336; border-color:#f44336; }
+    @keyframes popIn {
+      from { transform: scale(0.92); opacity: 0; }
+      to   { transform: scale(1);    opacity: 1; }
+    }
   </style>
 </head>
 <body>
@@ -340,6 +371,9 @@
     <div id="entryText">—</div>
     <div class="detail" id="entryDetail"></div>
   </div>
+
+  <!-- Insurance (shown when dealer shows Ace) -->
+  <div class="hidden" id="insuranceBanner"></div>
 
   <!-- Advice -->
   <div class="advice-box adv-none" id="adviceBox">—</div>
@@ -424,6 +458,9 @@
     <!-- Active session view -->
     <div id="sessActive" class="hidden">
 
+      <!-- Auto-result banner (shown after each resolved round) -->
+      <div class="hidden" id="autoResultBanner"></div>
+
       <!-- Stats row -->
       <div class="session-stats">
         <div class="sstat">
@@ -479,8 +516,14 @@
 
 <script>
   const CARDS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
-  let phase = 'mine'; // 'mine' | 'other' | 'dealer'
-  let S = null;       // last server state
+  let phase = 'mine';
+  let S = null;
+
+  const RESULT_META = {
+    win:  { label: '✓ GANASTE',  bannerCls: 'ar-win',  sym: 'W', symCls: 'res-win'  },
+    push: { label: '= PUSH',     bannerCls: 'ar-push', sym: '=', symCls: 'res-push' },
+    loss: { label: '✗ PERDISTE', bannerCls: 'ar-loss', sym: 'L', symCls: 'res-loss' },
+  };
 
   /* ── Phase ── */
   function setPhase(p) {
@@ -621,12 +664,26 @@
     document.getElementById('entryText').textContent   = er.text;
     document.getElementById('entryDetail').textContent = er.detail;
 
+    /* Insurance banner */
+    const insBanner = document.getElementById('insuranceBanner');
+    if (data.insurance) {
+      const ins = data.insurance;
+      insBanner.className = 'insurance-banner ' + (ins.take ? 'ins-take' : 'ins-skip');
+      insBanner.innerHTML = (ins.take ? '🛡 TOMA EL SEGURO' : '✗ NO TOMES EL SEGURO') +
+        `<div class="ins-detail">${ins.reason}</div>`;
+      insBanner.classList.remove('hidden');
+    } else {
+      insBanner.classList.add('hidden');
+    }
+
     /* Advice */
     const adv = data.advice;
     if (adv?.action_name) {
       const suf = data.hands.length > 1 ? ` (M${data.active_hand + 1})` : '';
-      document.getElementById('adviceBox').textContent = adv.action_name + suf;
-      document.getElementById('adviceBox').className   = 'advice-box adv-' + (adv.color || 'none');
+      const badge = adv.is_deviation
+        ? `<span class="i18-badge">I18 ×${adv.deviation_index_str}</span>` : '';
+      document.getElementById('adviceBox').innerHTML = adv.action_name + suf + badge;
+      document.getElementById('adviceBox').className = 'advice-box adv-' + (adv.color || 'none');
       document.getElementById('adviceReason').textContent = adv.reason || '';
     }
 
@@ -775,11 +832,28 @@
 
     const hist = sess.round_history;
     document.getElementById('sessRounds').textContent = hist.length;
-    const wins   = hist.filter(r => r.result === 'win').length;
-    const losses = hist.filter(r => r.result === 'loss').length;
-    document.getElementById('sessWinLoss').textContent = `W: ${wins} · L: ${losses}`;
+    document.getElementById('sessWinLoss').textContent = `W: ${sess.wins} · L: ${sess.losses}`;
 
-    // Pending result buttons
+    // Auto-result banner
+    const banner = document.getElementById('autoResultBanner');
+    const ar = sess.last_auto_result;
+    if (ar && sess.current_round_cards.length === 0) {
+      const meta   = RESULT_META[ar.result] || {};
+      const pnlTxt = (ar.pnl >= 0 ? '+' : '') + fmt(ar.pnl);
+      let handDetail = '';
+      if (ar.hand_results && ar.hand_results.length > 1) {
+        const splitMap = { blackjack:'BJ', win:'W', push:'=', loss:'L' };
+        handDetail = ' · Manos: ' + ar.hand_results.map(r => splitMap[r] || r).join(' / ');
+      }
+      banner.className = 'auto-result-banner ' + (meta.bannerCls || '');
+      banner.innerHTML = `${meta.label} <span style="font-size:1.3rem">${pnlTxt}</span>
+        <div class="ar-sub">Resultado detectado automáticamente${handDetail}</div>`;
+      banner.classList.remove('hidden');
+    } else {
+      banner.classList.add('hidden');
+    }
+
+    // Manual result buttons (only when auto-calc wasn't possible)
     document.getElementById('resultRow').classList.toggle('hidden', !sess.has_pending_result);
 
     // History table
@@ -829,10 +903,9 @@
         // Result
         const tdRes = document.createElement('td');
         tdRes.className = 'hist-res';
-        if (r.result === 'win')       { tdRes.textContent = 'W'; tdRes.classList.add('res-win'); }
-        else if (r.result === 'push') { tdRes.textContent = '='; tdRes.classList.add('res-push'); }
-        else if (r.result === 'loss') { tdRes.textContent = 'L'; tdRes.classList.add('res-loss'); }
-        else                          { tdRes.textContent = '?'; tdRes.classList.add('res-none'); }
+        const rm = RESULT_META[r.result];
+        if (rm) { tdRes.textContent = rm.sym; tdRes.classList.add(rm.symCls); }
+        else     { tdRes.textContent = '?';   tdRes.classList.add('res-none'); }
 
         // P&L
         const tdPnl = document.createElement('td');

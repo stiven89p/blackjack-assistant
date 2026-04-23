@@ -169,7 +169,8 @@ def new_round():
     if s['active'] and s['current_round_cards']:
         nd = state['num_decks']
         tc = bj.get_true_count(state['running_count'], state['cards_seen'], nd)
-        s['round_history'].append({
+
+        archived = {
             'round': s['round_num'],
             'cards': list(s['current_round_cards']),
             'tc_end': tc,
@@ -177,7 +178,28 @@ def new_round():
             'recommended_bet': s['recommended_bet_current'],
             'result': None,
             'pnl': None,
-        })
+            'hand_results': None,
+        }
+
+        # Auto-calculate result when possible
+        dealer_hand = state['dealer_hand']
+        my_hands    = [h for h in state['my_hands'] if h]
+        if my_hands:
+            all_bust = all(bj.hand_total(h)[0] > 21 for h in my_hands)
+            dealer_total, _ = bj.hand_total(dealer_hand) if dealer_hand else (0, False)
+            can_auto = all_bust or (bool(dealer_hand) and dealer_total >= 17)
+            if can_auto:
+                pnl, summary, hand_results = bj.calculate_round_pnl(
+                    my_hands, dealer_hand, dealer_total, s['recommended_bet_current']
+                )
+                s['bankroll'] = round(s['bankroll'] + pnl, 2)
+                archived['result']       = summary
+                archived['pnl']         = pnl
+                archived['hand_results'] = hand_results
+
+        s['round_history'].append(archived)
+        if len(s['round_history']) > 100:
+            s['round_history'] = s['round_history'][-100:]
         s['round_num'] += 1
         s['current_round_cards'] = []
 
@@ -285,14 +307,33 @@ def _build_response() -> dict:
     can_split = len(active_hand) == 2 and bj._is_pair(active_hand)
     has_next_hand = active < len(state['my_hands']) - 1
 
-    advice = bj.get_advice(active_hand, dealer_upcard)
-    entry = bj.get_entry_recommendation(tc)
+    advice = bj.get_advice(active_hand, dealer_upcard, tc)
+    entry  = bj.get_entry_recommendation(tc)
+
+    # Insurance recommendation when dealer shows Ace
+    insurance = None
+    if dealer_upcard == 'A' and active_hand:
+        take = tc >= bj.INSURANCE_INDEX
+        insurance = {
+            'take': take,
+            'reason': (f'TC {tc:+.1f} ≥ +{bj.INSURANCE_INDEX} — Toma el seguro (EV positivo)'
+                       if take else
+                       f'TC {tc:+.1f} < +{bj.INSURANCE_INDEX} — No tomes el seguro'),
+        }
 
     s = state['session']
     session_data = None
     if s['active']:
         rec_bet = bj.get_recommended_bet(tc, s['min_bet'], s['max_bet'])
         has_pending = bool(s['round_history'] and s['round_history'][-1]['result'] is None)
+        wins   = sum(1 for r in s['round_history'] if r['result'] == 'win')
+        losses = sum(1 for r in s['round_history'] if r['result'] == 'loss')
+        last_auto = None
+        if s['round_history']:
+            last = s['round_history'][-1]
+            if last['result'] is not None and last['pnl'] is not None:
+                last_auto = {'result': last['result'], 'pnl': last['pnl'],
+                             'hand_results': last.get('hand_results', [])}
         session_data = {
             'active': True,
             'bankroll': s['bankroll'],
@@ -306,6 +347,9 @@ def _build_response() -> dict:
             'current_round_cards': s['current_round_cards'],
             'round_history': s['round_history'],
             'has_pending_result': has_pending,
+            'last_auto_result': last_auto,
+            'wins': wins,
+            'losses': losses,
         }
 
     return {
@@ -325,5 +369,6 @@ def _build_response() -> dict:
         'dealer_soft': dealer_soft,
         'advice': advice,
         'entry_recommendation': entry,
+        'insurance': insurance,
         'session': session_data,
     }
